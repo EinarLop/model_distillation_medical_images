@@ -1,0 +1,6 @@
+.kaggle
+data
+.vscode
+.DS_Store
+models
+src/__pycache__
