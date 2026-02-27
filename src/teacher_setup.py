@@ -15,7 +15,7 @@ def get_frozen_teacher(model_name, cache_folder):
     # Load the Model with Classification Head
     teacher_model = AutoModelForImageClassification.from_pretrained(model_name,
                                                                     cache_dir=cache_folder)
-    
+        
     # Freeze the Weights
     # Teacher does not get updated during the distillation loop
     for param in teacher_model.parameters():
