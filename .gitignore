@@ -4,3 +4,4 @@ data
 .DS_Store
 models
 src/__pycache__
+ssh

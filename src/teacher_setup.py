@@ -1,7 +1,7 @@
 import torch
 from transformers import AutoImageProcessor, AutoModelForImageClassification
 
-def get_frozen_teacher(model_name, cache_folder):
+def get_frozen_teacher(model_name, cache_folder, device):
     """
     Loads a Hugging Face ViT model, freezes its weights, and sets it to eval mode
     Args: 
@@ -27,11 +27,10 @@ def get_frozen_teacher(model_name, cache_folder):
     teacher_model.eval()
     
     # Move to GPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     teacher_model.to(device)
     
     print(f"\nTeacher model successfully loaded and frozen on {device}.")
     
-    return teacher_model, processor, device
+    return teacher_model, processor
     
     

@@ -1,13 +1,28 @@
 from teacher_setup import get_frozen_teacher
 from student_setup import get_student_model
+from trainer import train_one_epoch, validate_one_epoch
+from distiller import Distiller
 from dataset import CheXpertZipDataset
 import torch
 from torch.utils.data import DataLoader
+import torch.optim as optim
+import os
 
 
 def main():
-    teacher, img_processor, device = get_frozen_teacher("codewithdark/vit-chest-xray",
-                                                        "./models/teacher_weights")
+
+    if torch.cuda.is_available():
+        # For your Linux server
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        # For your Mac M1 testing
+        device = torch.device("mps")
+    else:
+        # Fallback
+        device = torch.device("cpu")
+
+    teacher, img_processor = get_frozen_teacher("codewithdark/vit-chest-xray",
+                                                        "./models/teacher_weights", device)
     
     print(f"Number of target classes: {teacher.config.num_labels}")
 
@@ -22,8 +37,17 @@ def main():
         train_dataset, 
         batch_size=8, 
         shuffle=True, 
-        num_workers=0 # Increase on cluster
+        num_workers=8 # Increase on cluster
     )
+
+    val_dataset = CheXpertZipDataset(
+        zip_path="data/raw/chexpert.zip",
+        csv_internal_path="valid.csv",
+        processor=img_processor
+    )
+
+    # Shuffle is False for validation, ensuring consistent evaluation order
+    val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False, num_workers=8)
 
     # Test Batch
     batch_pixels, batch_labels = next(iter(train_loader))
@@ -41,15 +65,42 @@ def main():
     print("Teacher Test Forward Pass")
     print(f"Teacher Output Logits Shape: {teacher_logits.shape}")
 
-    student_model = get_student_model("WinKawaks/vit-small-patch16-224", 
+    student = get_student_model("WinKawaks/vit-small-patch16-224", 
                       "./models/student_weights",
                         device)
     
     # Verify the student dimensions
     dummy_input = torch.randn(8, 3, 224, 224).to(device)
-    outputs = student_model(dummy_input)
+    outputs = student(dummy_input)
 
     print(f"Student Output Logits Shape: {outputs.logits.shape}")
+
+    distiller = Distiller(teacher, student)
+    optimizer = optim.AdamW(student.parameters(), lr=1e-4)
+
+    os.makedirs("../models/student_checkpoints/", exist_ok=True)
+
+    epochs = 2
+    best_auroc = 0.0
+
+    print(f"\nTesting training for {epochs} epochs:")
+
+    for epoch in range(epochs):
+        print(f"Epoch {epoch+1}/{epochs}")
+        
+        # avg_loss = train_one_epoch(distiller, train_loader, optimizer, device)
+        # print(f"Average Training Loss: {avg_loss:.4f}")
+
+        val_auroc = validate_one_epoch(student, val_loader, device)
+        print(f"Validation AUROC: {val_auroc:.4f}")
+
+        if val_auroc > best_auroc:
+            print(f"New best AUROC! Saving model...")
+            best_auroc = val_auroc
+            
+            # Save strictly the weights, not the entire model architecture
+            save_path = f"../models/student_checkpoints/best_student_vit.pth"
+            torch.save(student.state_dict(), save_path)
 
 if __name__ == "__main__":
     main()
