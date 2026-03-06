@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from sklearn.metrics import roc_auc_score
+from tqdm import tqdm
 
 def train_one_epoch(distiller, dataloader, optimizer, device):
     """
@@ -14,8 +15,10 @@ def train_one_epoch(distiller, dataloader, optimizer, device):
     
     distiller.student.train()
     total_loss = 0.0
+
+    pbar = tqdm(enumerate(dataloader), total=len(dataloader), desc="Training", unit="batch")
     
-    for batch_idx, (images, labels) in enumerate(dataloader):
+    for batch_idx, (images, labels) in pbar:
         images, labels = images.to(device), labels.to(device)
         
         optimizer.zero_grad()
@@ -26,6 +29,7 @@ def train_one_epoch(distiller, dataloader, optimizer, device):
         # .item() extracts the float value from the tensor. 
         # This is critical for preventing memory leaks
         total_loss += loss.item()
+
         
     return total_loss / len(dataloader)
 

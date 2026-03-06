@@ -2,7 +2,7 @@ from teacher_setup import get_frozen_teacher
 from student_setup import get_student_model
 from trainer import train_one_epoch, validate_one_epoch
 from distiller import Distiller
-from dataset import CheXpertZipDataset
+from dataset import CheXpertZipDataset, CheXpertDataset
 import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
@@ -26,28 +26,42 @@ def main():
     
     print(f"Number of target classes: {teacher.config.num_labels}")
 
-    train_dataset = CheXpertZipDataset(
-        zip_path="data/raw/chexpert.zip",
-        csv_internal_path= "train.csv",
-        processor= img_processor
-    )
+    # train_dataset_zip = CheXpertZipDataset(
+    #     zip_path="data/raw/chexpert.zip",
+    #     csv_internal_path= "train.csv",
+    #     processor= img_processor
+    # )
 
+
+    train_dataset = CheXpertDataset(
+        data_root="data/raw/chexpert",
+        csv_path="data/raw/chexpert/train.csv",
+        processor=img_processor
+      )
     # Wraps the dataset and handles batching and parallel loading.
     train_loader = DataLoader(
         train_dataset, 
-        batch_size=8, 
+        batch_size=64, 
         shuffle=True, 
-        num_workers=8 # Increase on cluster
+        num_workers=4, # Increase on cluster
+        persistent_workers=True, # Keeps workers alive
+        prefetch_factor=2
     )
 
-    val_dataset = CheXpertZipDataset(
-        zip_path="data/raw/chexpert.zip",
-        csv_internal_path="valid.csv",
+    # val_dataset_zip = CheXpertZipDataset(
+    #     zip_path="data/raw/chexpert.zip",
+    #     csv_internal_path="valid.csv",
+    #     processor=img_processor
+    # )
+    val_dataset = CheXpertDataset(
+        data_root="data/raw/chexpert",
+        csv_path="data/raw/chexpert/valid.csv",
         processor=img_processor
     )
 
     # Shuffle is False for validation, ensuring consistent evaluation order
-    val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False, num_workers=8)
+    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=4,persistent_workers=True, # Keeps workers alive
+    prefetch_factor=2)
 
     # Test Batch
     batch_pixels, batch_labels = next(iter(train_loader))
@@ -88,8 +102,8 @@ def main():
     for epoch in range(epochs):
         print(f"Epoch {epoch+1}/{epochs}")
         
-        # avg_loss = train_one_epoch(distiller, train_loader, optimizer, device)
-        # print(f"Average Training Loss: {avg_loss:.4f}")
+        avg_loss = train_one_epoch(distiller, train_loader, optimizer, device)
+        print(f"Average Training Loss: {avg_loss:.4f}")
 
         val_auroc = validate_one_epoch(student, val_loader, device)
         print(f"Validation AUROC: {val_auroc:.4f}")
