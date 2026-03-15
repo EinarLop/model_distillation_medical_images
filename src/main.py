@@ -26,21 +26,21 @@ def main():
     
     print(f"Number of target classes: {teacher.config.num_labels}")
 
-    # train_dataset_zip = CheXpertZipDataset(
-    #     zip_path="data/raw/chexpert.zip",
-    #     csv_internal_path= "train.csv",
-    #     processor= img_processor
-    # )
+    train_dataset_zip = CheXpertZipDataset(
+        zip_path="data/raw/chexpert.zip",
+        csv_internal_path= "train.csv",
+        processor= img_processor
+    )
 
 
-    train_dataset = CheXpertDataset(
-        data_root="data/raw/chexpert",
-        csv_path="data/raw/chexpert/train.csv",
-        processor=img_processor
-      )
+    # train_dataset = CheXpertDataset(
+    #     data_root="data/raw/chexpert",
+    #     csv_path="data/raw/chexpert/train.csv",
+    #     processor=img_processor
+    #   )
     # Wraps the dataset and handles batching and parallel loading.
     train_loader = DataLoader(
-        train_dataset, 
+        train_dataset_zip, 
         batch_size=64, 
         shuffle=True, 
         num_workers=4, # Increase on cluster
@@ -48,19 +48,19 @@ def main():
         prefetch_factor=2
     )
 
-    # val_dataset_zip = CheXpertZipDataset(
-    #     zip_path="data/raw/chexpert.zip",
-    #     csv_internal_path="valid.csv",
-    #     processor=img_processor
-    # )
-    val_dataset = CheXpertDataset(
-        data_root="data/raw/chexpert",
-        csv_path="data/raw/chexpert/valid.csv",
+    val_dataset_zip = CheXpertZipDataset(
+        zip_path="data/raw/chexpert.zip",
+        csv_internal_path="valid.csv",
         processor=img_processor
     )
+    # val_dataset = CheXpertDataset(
+    #     data_root="data/raw/chexpert",
+    #     csv_path="data/raw/chexpert/valid.csv",
+    #     processor=img_processor
+    # )
 
     # Shuffle is False for validation, ensuring consistent evaluation order
-    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=4,persistent_workers=True, # Keeps workers alive
+    val_loader = DataLoader(val_dataset_zip, batch_size=64, shuffle=False, num_workers=4,persistent_workers=True, # Keeps workers alive
     prefetch_factor=2)
 
     # Test Batch
