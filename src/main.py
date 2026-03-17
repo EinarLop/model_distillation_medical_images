@@ -21,73 +21,80 @@ def main():
         # Fallback
         device = torch.device("cpu")
 
+    num_workers = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
+    dataset_dir = os.environ.get("DATASET_DIR")
+
+    print("Num Workers", num_workers, dataset_dir)
+
     teacher, img_processor = get_frozen_teacher("codewithdark/vit-chest-xray",
                                                         "./models/teacher_weights", device)
     
     print(f"Number of target classes: {teacher.config.num_labels}")
 
-    train_dataset_zip = CheXpertZipDataset(
-        zip_path="data/raw/chexpert.zip",
-        csv_internal_path= "train.csv",
-        processor= img_processor
-    )
+   # train_dataset_zip = CheXpertZipDataset(
+   #     zip_path="/scratch/project_2018357/data/chexpert.zip",
+   #     csv_internal_path= "train.csv",
+   #     processor= img_processor
+   # )
 
 
-    # train_dataset = CheXpertDataset(
-    #     data_root="data/raw/chexpert",
-    #     csv_path="data/raw/chexpert/train.csv",
-    #     processor=img_processor
-    #   )
+    train_dataset = CheXpertDataset(
+        data_root= dataset_dir,
+        csv_path=dataset_dir + "/train.csv",
+        processor=img_processor
+       )
+
     # Wraps the dataset and handles batching and parallel loading.
     train_loader = DataLoader(
-        train_dataset_zip, 
+        train_dataset, 
         batch_size=64, 
         shuffle=True, 
-        num_workers=4, # Increase on cluster
+        num_workers=num_workers, # Increase on cluster
         persistent_workers=True, # Keeps workers alive
         prefetch_factor=2
     )
 
-    val_dataset_zip = CheXpertZipDataset(
-        zip_path="data/raw/chexpert.zip",
-        csv_internal_path="valid.csv",
+   # val_dataset_zip = CheXpertZipDataset(
+   #     zip_path="/scratch/project_2018357/data/chexpert.zip",
+   #     csv_internal_path="valid.csv",
+   #     processor=img_processor
+   #)
+
+    val_dataset = CheXpertDataset(
+        data_root= dataset_dir,
+        csv_path=dataset_dir + "/valid.csv",
         processor=img_processor
-    )
-    # val_dataset = CheXpertDataset(
-    #     data_root="data/raw/chexpert",
-    #     csv_path="data/raw/chexpert/valid.csv",
-    #     processor=img_processor
-    # )
+     )
 
     # Shuffle is False for validation, ensuring consistent evaluation order
-    val_loader = DataLoader(val_dataset_zip, batch_size=64, shuffle=False, num_workers=4,persistent_workers=True, # Keeps workers alive
+    val_loader = DataLoader(val_dataset, batch_size=64, shuffle=False, num_workers=num_workers,persistent_workers=True, # Keeps workers alive
     prefetch_factor=2)
 
     # Test Batch
-    batch_pixels, batch_labels = next(iter(train_loader))
+    #batch_pixels, batch_labels = next(iter(train_loader))
     # NCHW (Number (Batch Size), Channels, Height, Width).
-    print(f"Test Batch Dataset Pixels Tensor Shape: {batch_pixels.shape}")
-    print(f"Test Batch Dataset Labels Tensor Shape: {batch_labels.shape}")
+    #print(f"Test Batch Dataset Pixels Tensor Shape: {batch_pixels.shape}")
+    #print(f"Test Batch Dataset Labels Tensor Shape: {batch_labels.shape}")
 
     # Test Forward Pass
-    batch_pixels = batch_pixels.to(device)
+    #batch_pixels = batch_pixels.to(device)
     # Do not calculate gradient
-    with torch.no_grad(): 
-        teacher_outputs = teacher(batch_pixels)
-        teacher_logits = teacher_outputs.logits
+    #with torch.no_grad(): 
+    #    teacher_outputs = teacher(batch_pixels)
+    #    teacher_logits = teacher_outputs.logits
 
-    print("Teacher Test Forward Pass")
-    print(f"Teacher Output Logits Shape: {teacher_logits.shape}")
+    #print("Teacher Test Forward Pass")
+    #print(f"Teacher Output Logits Shape: {teacher_logits.shape}")
 
     student = get_student_model("WinKawaks/vit-small-patch16-224", 
                       "./models/student_weights",
                         device)
     
     # Verify the student dimensions
-    dummy_input = torch.randn(8, 3, 224, 224).to(device)
-    outputs = student(dummy_input)
+    #dummy_input = torch.randn(8, 3, 224, 224).to(device)
+    #outputs = student(dummy_input)
 
-    print(f"Student Output Logits Shape: {outputs.logits.shape}")
+    #print(f"Student Output Logits Shape: {outputs.logits.shape}")
 
     distiller = Distiller(teacher, student)
     optimizer = optim.AdamW(student.parameters(), lr=1e-4)
