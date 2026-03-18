@@ -3,7 +3,9 @@ data
 .vscode
 .DS_Store
 models/*
+!models/.gitkeep
 runs/*
+!runs/.gitkeep
 src/__pycache__
 ssh
 notes_private.md
