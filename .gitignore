@@ -3,7 +3,7 @@ data
 .vscode
 .DS_Store
 models/*
-!models/student_checkpoints
+runs/*
 src/__pycache__
 ssh
 notes_private.md
