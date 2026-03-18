@@ -11,5 +11,7 @@ dependencies:
   - tqdm
   - pip
   - kaggle
+  - tensorboard
+  - setuptools
   - pip:
     - transformers

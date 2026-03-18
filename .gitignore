@@ -2,7 +2,8 @@
 data
 .vscode
 .DS_Store
-models
+models/*
+!models/student_checkpoints
 src/__pycache__
 ssh
 notes_private.md

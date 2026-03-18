@@ -10,7 +10,8 @@ def get_frozen_teacher(model_name, cache_folder, device):
     """
     # Handles converting raw PIL images into the tensor format ViT expects
     processor = AutoImageProcessor.from_pretrained(model_name,
-                                                   cache_dir=cache_folder)
+                                                   cache_dir=cache_folder,
+                                                   use_fast=True)
     
     # Load the Model with Classification Head
     teacher_model = AutoModelForImageClassification.from_pretrained(model_name,
