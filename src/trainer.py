@@ -73,10 +73,12 @@ def validate_one_epoch(student_model, dataloader, device):
     # We use 'macro' average to calculate the metric independently for each of the 5 classes
     # and then find their unweighted mean.
     try:
-        auroc_score = roc_auc_score(all_targets, all_predictions, average='macro')
+        macro_auroc = roc_auc_score(all_targets, all_predictions, average='macro')
+        class_auroc = roc_auc_score(all_targets, all_predictions, average=None)
+        
     except ValueError:
         # This prevents a crash if your test set is so small that a class has only 0s or only 1s
         print("Warning: AUROC calculation failed (likely due to missing positive labels in test batch).")
-        auroc_score = 0.0
+        macro_auroc = 0.0
         
-    return auroc_score
+    return macro_auroc, class_auroc

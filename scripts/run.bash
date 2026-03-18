@@ -8,9 +8,9 @@
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export DATASET_DIR=$LOCAL_SCRATCH
+export BATCH_SIZE=64
 
 unzip -q /scratch/project_2018357/data/chexpert.zip -d $LOCAL_SCRATCH
-
 
 module load pytorch
 srun python3 ./../src/main.py

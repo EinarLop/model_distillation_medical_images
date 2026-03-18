@@ -73,7 +73,7 @@ def main():
     optimizer = optim.AdamW(student.parameters(), lr=1e-2)
 
     
-    epochs = 2
+    epochs = 10
     best_auroc = 0.0
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -90,14 +90,17 @@ def main():
         print(f"Average Training Loss: {avg_loss:.4f}")
         writer.add_scalar('Training/Epoch_Loss', avg_loss, epoch)
 
-        val_auroc = validate_one_epoch(student, val_loader, device)
-        print(f"Validation AUROC: {val_auroc:.4f}")
-        writer.add_scalar('Validation/Epoch_AUROC', val_auroc, epoch)
+        val_macro_auroc, val_class_auroc = validate_one_epoch(student, val_loader, device)
+        print(f"Validation AUROC: {val_macro_auroc:.4f}")
+        writer.add_scalar('Validation/Epoch_AUROC', val_macro_auroc, epoch)
 
+        disease_names = ['Cardiomegaly', 'Edema', 'Consolidation', 'Pneumonia', 'No Finding']
+        for i, disease in enumerate(disease_names):
+            writer.add_scalar(f'Validation/Epoch_Disease_AUROC-{disease}', val_class_auroc[i], epoch)
 
-        if val_auroc > best_auroc:
+        if val_macro_auroc > best_auroc:
             print(f"New best AUROC! Saving model...")
-            best_auroc = val_auroc
+            best_auroc = val_macro_auroc
             
             # Save weights
             save_path = f"models/student_checkpoints/best_student_vit.pth"
