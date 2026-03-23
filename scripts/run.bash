@@ -9,6 +9,7 @@
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export DATASET_DIR=$LOCAL_SCRATCH
 export BATCH_SIZE=64
+export ROOT_PATH = "/projappl/project_2018357/model_distillation_medical_images"
 
 unzip -q /scratch/project_2018357/data/chexpert.zip -d $LOCAL_SCRATCH
 

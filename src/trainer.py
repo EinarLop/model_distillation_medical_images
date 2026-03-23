@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 
-def train_one_epoch(distiller, dataloader, optimizer, device, writer, global_step):
+def train_one_epoch(distiller, dataloader, optimizer, device, writer, global_step, scheduler):
     """
     Iterates through the dataset once, calculating loss and updating student weights.
     Args: 
@@ -23,12 +23,16 @@ def train_one_epoch(distiller, dataloader, optimizer, device, writer, global_ste
         loss, _ = distiller.compute_loss(images, labels)
         loss.backward()
         optimizer.step()
+
+  
+        scheduler.step()
         
         # .item() extracts the float value from the tensor. 
         # This is critical for preventing memory leaks
         total_loss += loss.item()
 
         writer.add_scalar('Training/Batch_Loss', loss.item(), global_step)
+        writer.add_scalar('Training/Learning_Rate', optimizer.param_groups[0]['lr'], global_step)
         global_step += 1
 
         

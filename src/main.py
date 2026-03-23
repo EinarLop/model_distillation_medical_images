@@ -9,6 +9,7 @@ import torch.optim as optim
 import os
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
+from torch.optim.lr_scheduler import OneCycleLR
 
 
 def main():
@@ -23,13 +24,12 @@ def main():
     num_workers = int(os.environ.get("SLURM_CPUS_PER_TASK", 4))
     dataset_dir = os.environ.get("DATASET_DIR", "/Users/einar/Documents/EDISS/UIB/TFM/model_distillation_medical_images/data")
     batch_size =  int(os.environ.get("BATCH_SIZE", 16))
-    models_path ="/projappl/project_2018357/model_distillation_medical_images/models"
-    runs_path = "/projappl/project_2018357/model_distillation_medical_images/runs"
+    root_path =  os.environ.get("ROOT_PATH", ".")
 
     print("Num Workers", num_workers, dataset_dir)
 
     teacher, img_processor = get_frozen_teacher("codewithdark/vit-chest-xray",
-                                                models_path + "/teacher_weights",
+                                                root_path + "/models/teacher_weights",
                                                 device)
 
     train_dataset = CheXpertDataset(
@@ -67,20 +67,28 @@ def main():
     
 
     student = get_student_model("WinKawaks/vit-small-patch16-224", 
-                                models_path +"/student_weights",
+                                root_path +"/models/student_weights",
                                 device)
 
 
     distiller = Distiller(teacher, student)
-    optimizer = optim.AdamW(student.parameters(), lr=1e-2)
+    optimizer = optim.AdamW(student.parameters(), lr=1e-4)
 
-    
-    epochs = 10
+    epochs = 10 
+
+    scheduler = OneCycleLR(
+        optimizer,
+        max_lr=1e-3,                  # The peak learning rate
+        epochs=epochs,
+        steps_per_epoch=len(train_loader),
+        pct_start=0.3                 # Spends the first 30% of training warming up
+    )
+   
     best_auroc = 0.0
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"distillation_{timestamp}"
-    log_dir = runs_path + f"/{run_name}"
+    log_dir = root_path + f"/runs/{run_name}"
     writer = SummaryWriter(log_dir=log_dir)
 
     global_step = 0
@@ -88,7 +96,7 @@ def main():
     for epoch in range(epochs):
         print(f"Epoch {epoch+1}/{epochs}")
         
-        avg_loss = train_one_epoch(distiller, train_loader, optimizer, device, writer, global_step)
+        avg_loss = train_one_epoch(distiller, train_loader, optimizer, device, writer, global_step, scheduler)
         print(f"Average Training Loss: {avg_loss:.4f}")
         writer.add_scalar('Training/Epoch_Loss', avg_loss, epoch)
 
