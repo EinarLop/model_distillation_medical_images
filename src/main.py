@@ -23,11 +23,13 @@ def main():
     num_workers = int(os.environ.get("SLURM_CPUS_PER_TASK", 4))
     dataset_dir = os.environ.get("DATASET_DIR", "/Users/einar/Documents/EDISS/UIB/TFM/model_distillation_medical_images/data")
     batch_size =  int(os.environ.get("BATCH_SIZE", 16))
+    models_path ="/projappl/project_2018357/model_distillation_medical_images/models"
+    runs_path = "/projappl/project_2018357/model_distillation_medical_images/runs"
 
     print("Num Workers", num_workers, dataset_dir)
 
     teacher, img_processor = get_frozen_teacher("codewithdark/vit-chest-xray",
-                                                "./models/teacher_weights",
+                                                models_path + "/teacher_weights",
                                                 device)
 
     train_dataset = CheXpertDataset(
@@ -65,7 +67,7 @@ def main():
     
 
     student = get_student_model("WinKawaks/vit-small-patch16-224", 
-                                "./models/student_weights",
+                                models_path +"/student_weights",
                                 device)
 
 
@@ -78,7 +80,7 @@ def main():
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"distillation_{timestamp}"
-    log_dir = f"runs/{run_name}"
+    log_dir = runs_path + f"/{run_name}"
     writer = SummaryWriter(log_dir=log_dir)
 
     global_step = 0
