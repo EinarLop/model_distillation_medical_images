@@ -4,7 +4,7 @@ from trainer import train_one_epoch, validate_one_epoch
 from distiller import Distiller
 from dataset import CheXpertDataset
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 import torch.optim as optim
 import os
 from torch.utils.tensorboard import SummaryWriter
@@ -26,6 +26,11 @@ def main():
     batch_size = int(os.environ.get("BATCH_SIZE", 16))
     root_path =  os.environ.get("ROOT_PATH", ".")
 
+    train_subset_size = int(os.environ.get("TRAIN_SUBSET_SIZE", 100))
+    val_subset_size = int(os.environ.get("VAL_SUBSET_SIZE", 20))
+
+    checkpoint_name = os.environ.get("CHECKPOINT_NAME", "unnamed.pth")
+
     print("Num Workers", num_workers, dataset_dir)
 
     teacher, img_processor = get_frozen_teacher("codewithdark/vit-chest-xray",
@@ -37,6 +42,9 @@ def main():
         csv_path=dataset_dir + "/train.csv",
         processor=img_processor
        )
+    
+    train_dataset = Subset(train_dataset, list(range(train_subset_size)))
+   
 
     # Wraps the dataset and handles batching and parallel loading.
     train_loader = DataLoader(
@@ -53,6 +61,8 @@ def main():
         csv_path=dataset_dir + "/valid.csv",
         processor=img_processor
      )
+    
+    val_dataset = Subset(val_dataset, list(range(val_subset_size)))
 
     # Shuffle is False for validation, ensuring consistent evaluation order
     val_loader = DataLoader(val_dataset,
@@ -65,11 +75,15 @@ def main():
 
     # NCHW (Number (Batch Size), Channels, Height, Width).
     
+    print(f"VERIFICATION MODE: Limited to {len(train_dataset)} train / {len(val_dataset)} val images.")
 
     student = get_student_model("WinKawaks/vit-small-patch16-224", 
                                 root_path +"/models/student_weights",
                                 device)
 
+    if device == "cuda":
+        # Compile the model for A100 optimization
+        student = torch.compile(student)
 
     distiller = Distiller(teacher, student)
     optimizer = optim.AdamW(student.parameters(), lr=1e-4)
@@ -88,7 +102,7 @@ def main():
     )
 
     # Use a distinct name for the state dictionary to prevent overwriting your raw model weights
-    checkpoint_path = root_path + "/models/student_checkpoints/checkpoint_gpu_run2403.pth"
+    checkpoint_path = root_path + "/models/student_checkpoints/" + checkpoint_name
     
     # Generate default paths
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -124,7 +138,7 @@ def main():
     for epoch in range(start_epoch, epochs):
         print(f"Epoch {epoch+1}/{epochs}")
         
-        avg_loss = train_one_epoch(distiller, train_loader, optimizer, device, writer, global_step, scheduler)
+        avg_loss = train_one_epoch(distiller, train_loader, optimizer, device, writer, epoch, scheduler)
         print(f"Average Training Loss: {avg_loss:.4f}")
         writer.add_scalar('Training/Epoch_Loss', avg_loss, epoch)
 

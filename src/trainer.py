@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 from tqdm import tqdm
 
-def train_one_epoch(distiller, dataloader, optimizer, device, writer, global_step, scheduler):
+def train_one_epoch(distiller, dataloader, optimizer, device, writer, epoch, scheduler):
     """
     Iterates through the dataset once, calculating loss and updating student weights.
     Args: 
@@ -15,25 +15,40 @@ def train_one_epoch(distiller, dataloader, optimizer, device, writer, global_ste
     
     distiller.student.train()
     total_loss = 0.0
+    num_batches = len(dataloader)
+
+    if device == "cuda":
+        # Initialize the gradient scaler for mixed precision
+        scaler = torch.amp.GradScaler('cuda')
     
     for batch_idx, (images, labels) in enumerate(dataloader):
         images, labels = images.to(device), labels.to(device)
-        
+
         optimizer.zero_grad()
         loss, _ = distiller.compute_loss(images, labels)
         loss.backward()
         optimizer.step()
 
-  
-        scheduler.step()
+        if device == "cuda":
+            # The A100 supports bfloat16, which is highly stable for Transformers
+            with torch.amp.autocast('cuda', dtype=torch.bfloat16):
+                loss, _ = distiller.compute_loss(images, labels)
+                
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        
+        if scheduler is not None:
+            scheduler.step()
         
         # .item() extracts the float value from the tensor. 
         # This is critical for preventing memory leaks
         total_loss += loss.item()
 
-        writer.add_scalar('Training/Batch_Loss', loss.item(), global_step)
-        writer.add_scalar('Training/Learning_Rate', optimizer.param_groups[0]['lr'], global_step)
-        global_step += 1
+        current_step = (epoch * num_batches) + batch_idx
+        
+        writer.add_scalar('Training/Batch_Loss', loss.item(), current_step)
+        writer.add_scalar('Training/Learning_Rate', optimizer.param_groups[0]['lr'], current_step)
 
         
     return total_loss / len(dataloader)
