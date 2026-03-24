@@ -1,0 +1,18 @@
+Some weights of ViTForImageClassification were not initialized from the model checkpoint at WinKawaks/vit-small-patch16-224 and are newly initialized because the shapes did not match:
+- classifier.bias: found shape torch.Size([1000]) in the checkpoint and torch.Size([5]) in the model instantiated
+- classifier.weight: found shape torch.Size([1000, 384]) in the checkpoint and torch.Size([5, 384]) in the model instantiated
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+Num Workers 8 /run/nvme/job_6162639/data
+
+Teacher model successfully loaded and frozen on cuda.
+Reading CSV from /run/nvme/job_6162639/data/train.csv...
+Dataset initialized with 223414 images across 5 classes.
+Reading CSV from /run/nvme/job_6162639/data/valid.csv...
+Dataset initialized with 234 images across 5 classes.
+
+Student model successfully loaded on cuda.
+Epoch 1/10
+Average Training Loss: 1.1641
+slurmstepd: error: *** STEP 6162639.0 ON g4102 CANCELLED AT 2026-03-24T14:37:15 DUE TO TIME LIMIT ***
+slurmstepd: error: *** JOB 6162639 ON g4102 CANCELLED AT 2026-03-24T14:37:15 DUE TO TIME LIMIT ***
+srun: Job step aborted: Waiting up to 62 seconds for job step to finish.
