@@ -21,7 +21,7 @@ def main():
     else:
         device = torch.device("cpu")
 
-    num_workers = min(int(os.environ.get("SLURM_CPUS_PER_TASK", 4), 8)
+    num_workers = min(int(os.environ.get("SLURM_CPUS_PER_TASK", 4)), 8)
     dataset_dir = os.environ.get("DATASET_DIR", "/Users/einar/Documents/EDISS/UIB/TFM/model_distillation_medical_images/data")
     batch_size = int(os.environ.get("BATCH_SIZE", 16))
     root_path =  os.environ.get("ROOT_PATH", ".")
@@ -74,7 +74,10 @@ def main():
     distiller = Distiller(teacher, student)
     optimizer = optim.AdamW(student.parameters(), lr=1e-4)
 
-    epochs = 10 
+    epochs = 10
+    best_auroc = 0.0
+    global_step = 0
+    start_epoch = 0
 
     scheduler = OneCycleLR(
         optimizer,
@@ -83,17 +86,42 @@ def main():
         steps_per_epoch=len(train_loader),
         pct_start=0.3                 # Spends the first 30% of training warming up
     )
-   
-    best_auroc = 0.0
 
+    # Use a distinct name for the state dictionary to prevent overwriting your raw model weights
+    checkpoint_path = root_path + "/models/student_checkpoints/checkpoint_gpu_run2403.pth"
+    
+    # Generate default paths
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"distillation_{timestamp}"
     log_dir = root_path + f"/runs/{run_name}"
+
+    if os.path.exists(checkpoint_path):
+
+        print(f"Found existing checkpoint")
+
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        
+        # Restore the exact state of the universe
+        student.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        
+        # If using a scheduler, restore it too
+        if 'scheduler_state_dict' in checkpoint:
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            
+        start_epoch = checkpoint['epoch'] + 1
+        best_auroc = checkpoint['best_auroc']
+        global_step = checkpoint['global_step']
+
+        # Override the new timestamp with the original folder path to stitch logs
+        if 'log_dir' in checkpoint:
+            log_dir = checkpoint['log_dir']
+
+        print(f"Resuming from Epoch {start_epoch + 1}...")
+
     writer = SummaryWriter(log_dir=log_dir)
 
-    global_step = 0
-
-    for epoch in range(epochs):
+    for epoch in range(start_epoch, epochs):
         print(f"Epoch {epoch+1}/{epochs}")
         
         avg_loss = train_one_epoch(distiller, train_loader, optimizer, device, writer, global_step, scheduler)
@@ -108,13 +136,18 @@ def main():
         for i, disease in enumerate(disease_names):
             writer.add_scalar(f'Validation/Epoch_Disease_AUROC-{disease}', val_class_auroc[i], epoch)
 
-        if val_macro_auroc > best_auroc:
-            print(f"New best AUROC! Saving model...")
-            best_auroc = val_macro_auroc
-            
-            # Save weights
-            save_path = f"models/student_checkpoints/best_student_vit.pth"
-            torch.save(student.state_dict(), save_path)
+        # Save the overwriting checkpoint for SLURM recovery
+        print("Saving recovery checkpoint...")
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': student.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'scheduler_state_dict': scheduler.state_dict(),
+            'best_auroc': best_auroc,
+            'global_step': global_step,
+            'log_dir': log_dir
+        }
+        torch.save(checkpoint, checkpoint_path)
 
 if __name__ == "__main__":
     main()
