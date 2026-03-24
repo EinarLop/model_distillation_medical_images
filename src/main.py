@@ -21,9 +21,9 @@ def main():
     else:
         device = torch.device("cpu")
 
-    num_workers = int(os.environ.get("SLURM_CPUS_PER_TASK", 4))
+    num_workers = min(int(os.environ.get("SLURM_CPUS_PER_TASK", 4), 8)
     dataset_dir = os.environ.get("DATASET_DIR", "/Users/einar/Documents/EDISS/UIB/TFM/model_distillation_medical_images/data")
-    batch_size =  int(os.environ.get("BATCH_SIZE", 16))
+    batch_size = int(os.environ.get("BATCH_SIZE", 16))
     root_path =  os.environ.get("ROOT_PATH", ".")
 
     print("Num Workers", num_workers, dataset_dir)
